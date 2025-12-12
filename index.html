@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Control IoT Global — Control de Relevos</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Lucide -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <style>
+    .glow-on { box-shadow: 0 0 20px #fbbf24; border-color: #fbbf24; }
+    .glass-panel {
+      background: rgba(30,41,59,0.70);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    /* botón grande estilo switch */
+    .big-btn { padding: .75rem 1.25rem; border-radius: .75rem; font-weight: 700; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans bg-[url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop')] bg-cover bg-center bg-fixed">
+
+  <!-- overlay -->
+  <div class="fixed inset-0 bg-slate-900/80 pointer-events-none"></div>
+
+  <div class="relative z-10 max-w-3xl mx-auto p-6 min-h-screen flex flex-col gap-6">
+
+    <!-- HEADER -->
+    <header class="flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">Cloud Control</h1>
+        <p class="text-xs text-slate-400">Monitoreo IoT — Sensores Dallas + Relevos</p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div id="modeBadge" class="px-3 py-1 rounded-full text-sm font-semibold bg-yellow-600/10 text-yellow-300 border border-yellow-600/20">Modo: ---</div>
+        <button onclick="openConfig()" class="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition border border-slate-600">
+          <i data-lucide="settings" class="w-5 h-5 text-slate-300"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Estado conexión -->
+    <div id="statusIndicator" class="mb-2 flex items-center gap-3 bg-red-500/10 border border-red-500/20 p-3 rounded-lg backdrop-blur-sm">
+      <span class="relative flex h-3 w-3">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+      </span>
+      <span id="statusText" class="text-sm font-medium text-red-400">Desconectado de Firebase</span>
+    </div>
+
+    <!-- LAYOUT: Sensores (columna izquierda) | Controles (columna derecha) -->
+    <main class="grid grid-cols-1 md:grid-cols-2 gap-6 flex-grow">
+
+      <!-- COLUMN: Sensores -->
+      <section class="space-y-4">
+        <!-- Sensor cards (existing) -->
+        <div class="glass-panel p-5 rounded-2xl">
+          <div class="flex justify-between items-center mb-2">
+            <div>
+              <h2 class="text-lg font-semibold">Sensor 1</h2>
+              <span class="text-xs text-slate-400 font-mono">/casa/sensores/s1</span>
+            </div>
+            <i data-lucide="thermometer" id="icon_s1" class="w-6 h-6 text-slate-400"></i>
+          </div>
+          <p id="temp_s1" class="text-3xl font-bold">-- °C</p>
+        </div>
+
+        <div class="glass-panel p-5 rounded-2xl">
+          <div class="flex justify-between items-center mb-2">
+            <div>
+              <h2 class="text-lg font-semibold">Sensor 2</h2>
+              <span class="text-xs text-slate-400 font-mono">/casa/sensores/s2</span>
+            </div>
+            <i data-lucide="thermometer" id="icon_s2" class="w-6 h-6 text-slate-400"></i>
+          </div>
+          <p id="temp_s2" class="text-3xl font-bold">-- °C</p>
+        </div>
+
+        <div class="glass-panel p-5 rounded-2xl">
+          <div class="flex justify-between items-center mb-2">
+            <div>
+              <h2 class="text-lg font-semibold">Sensor 3</h2>
+              <span class="text-xs text-slate-400 font-mono">/casa/sensores/s3</span>
+            </div>
+            <i data-lucide="thermometer" id="icon_s3" class="w-6 h-6 text-slate-400"></i>
+          </div>
+          <p id="temp_s3" class="text-3xl font-bold">-- °C</p>
+        </div>
+
+        <div class="glass-panel p-5 rounded-2xl">
+          <div class="flex justify-between items-center mb-2">
+            <div>
+              <h2 class="text-lg font-semibold">Sensor 4</h2>
+              <span class="text-xs text-slate-400 font-mono">/casa/sensores/s4</span>
+            </div>
+            <i data-lucide="thermometer" id="icon_s4" class="w-6 h-6 text-slate-400"></i>
+          </div>
+          <p id="temp_s4" class="text-3xl font-bold">-- °C</p>
+        </div>
+
+        <div class="glass-panel p-5 rounded-2xl border-2 border-cyan-400">
+          <h3 class="text-lg font-semibold text-center mb-2">Promedio General</h3>
+          <p id="temp_prom" class="text-4xl font-bold text-center text-cyan-300">-- °C</p>
+        </div>
+      </section>
+
+      <!-- COLUMN: Controles -->
+      <section class="space-y-4">
+
+        <!-- Selector Manual / Automático -->
+        <div class="glass-panel p-5 rounded-2xl flex flex-col gap-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <i data-lucide="shield-off" class="w-6 h-6 text-slate-300"></i>
+              <div>
+                <h3 class="text-lg font-semibold">Modo Operación</h3>
+                <p class="text-xs text-slate-400">Manual / Automático (protección con contraseña)</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <div id="modeSwitchLabel" class="text-sm px-3 py-1 rounded-full bg-slate-800 border border-slate-700">---</div>
+              <button id="modeSwitchBtn" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold">Cambiar</button>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-400">En <span id="modeInfo" class="font-semibold">—</span>, los botones de control serán <span id="btnStateInfo" class="font-semibold">—</span>.</p>
+        </div>
+
+        <!-- Tarjeta: Calefactor (nuevo estilo: rojo) -->
+        <div id="card_calefactor" class="p-5 rounded-2xl border-2 border-red-700 bg-gradient-to-tr from-red-900/10 to-transparent glass-panel">
+          <div class="flex justify-between items-center mb-3">
+            <div>
+              <h3 class="text-xl font-semibold text-red-200">Calefactor</h3>
+              <span class="text-xs text-red-300 font-mono">/casa/control/calentador</span>
+            </div>
+            <i data-lucide="fire" id="icon_calefactor" class="w-8 h-8 text-red-300"></i>
+          </div>
+
+          <div class="flex gap-3">
+            <button id="btn_cal_on" class="big-btn flex-1 bg-red-600 hover:bg-red-500 text-white rounded-xl" onclick="setManualControl('calentador', true)">
+              <i data-lucide="power" class="inline-block w-5 h-5 mr-2 -mt-0.5"></i> ENCENDER
+            </button>
+            <button id="btn_cal_off" class="big-btn flex-1 bg-red-800 hover:bg-red-700 text-white rounded-xl" onclick="setManualControl('calentador', false)">
+              <i data-lucide="slash" class="inline-block w-5 h-5 mr-2 -mt-0.5"></i> APAGAR
+            </button>
+          </div>
+
+          <p class="mt-3 text-sm text-red-200">Estado: <span id="state_cal" class="font-semibold">—</span></p>
+        </div>
+
+        <!-- Tarjeta: Ventilador (nuevo estilo: azul) -->
+        <div id="card_ventilador" class="p-5 rounded-2xl border-2 border-blue-500 bg-gradient-to-tr from-blue-900/10 to-transparent glass-panel">
+          <div class="flex justify-between items-center mb-3">
+            <div>
+              <h3 class="text-xl font-semibold text-blue-200">Ventilador</h3>
+              <span class="text-xs text-blue-300 font-mono">/casa/control/ventilador</span>
+            </div>
+            <i data-lucide="fan" id="icon_vent" class="w-8 h-8 text-blue-300"></i>
+          </div>
+
+          <div class="flex gap-3">
+            <button id="btn_vent_on" class="big-btn flex-1 bg-blue-600 hover:bg-blue-500 text-white rounded-xl" onclick="setManualControl('ventilador', true)">
+              <i data-lucide="power" class="inline-block w-5 h-5 mr-2 -mt-0.5"></i> ENCENDER
+            </button>
+            <button id="btn_vent_off" class="big-btn flex-1 bg-blue-800 hover:bg-blue-700 text-white rounded-xl" onclick="setManualControl('ventilador', false)">
+              <i data-lucide="slash" class="inline-block w-5 h-5 mr-2 -mt-0.5"></i> APAGAR
+            </button>
+          </div>
+
+          <p class="mt-3 text-sm text-blue-200">Estado: <span id="state_vent" class="font-semibold">—</span></p>
+        </div>
+
+      </section>
+
+    </main>
+
+    <footer class="text-center text-xs text-slate-500 font-mono">IST Vida Nueva — Investigación IoT</footer>
+
+  </div>
+
+  <!-- CONFIG MODAL -->
+  <div id="configModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-lg hidden">
+    <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl w-11/12 max-w-md shadow-2xl">
+      <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+        <i data-lucide="database" class="w-5 h-5 text-blue-400"></i>
+        Configuración Firebase
+      </h3>
+      <p class="text-sm text-slate-400 mb-4">Ingresa tus credenciales de Firebase Realtime Database.</p>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-500 mb-1">API KEY</label>
+          <input id="apiKeyInput" type="text" placeholder="AIzaSy..." class="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-sm text-white">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-500 mb-1">DATABASE URL</label>
+          <input id="dbUrlInput" type="text" placeholder="https://proyecto-default-rtdb.firebaseio.com" class="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-sm text-white">
+        </div>
+      </div>
+
+      <div class="mt-6 flex gap-3">
+        <button onclick="closeConfig()" class="flex-1 py-3 text-slate-400 hover:text-white">Cancelar</button>
+        <button onclick="saveConfig()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl">Guardar y Conectar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase Modular -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, onValue, set, get, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    let app, db;
+
+    // constantes
+    const LOCK_PASSWORD = "1234"; // contraseña solicitada para cambiar modo
+    const UMBRAL_ALTA = 35.0;     // para ventilador
+    const UMBRAL_BAJA = 21.0;     // para calefactor
+
+    // elementos DOM
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    const dbUrlInput = document.getElementById('dbUrlInput');
+
+    const statusIndicator = document.getElementById('statusIndicator');
+    const statusText = document.getElementById('statusText');
+    const modeBadge = document.getElementById('modeBadge');
+    const modeSwitchBtn = document.getElementById('modeSwitchBtn');
+    const modeSwitchLabel = document.getElementById('modeSwitchLabel');
+    const modeInfo = document.getElementById('modeInfo');
+    const btnStateInfo = document.getElementById('btnStateInfo');
+
+    const btn_cal_on = document.getElementById('btn_cal_on');
+    const btn_cal_off = document.getElementById('btn_cal_off');
+    const btn_vent_on = document.getElementById('btn_vent_on');
+    const btn_vent_off = document.getElementById('btn_vent_off');
+
+    const state_cal = document.getElementById('state_cal');
+    const state_vent = document.getElementById('state_vent');
+
+    // UI helpers
+    function setStatus(ok, text) {
+      if (ok) {
+        statusIndicator.className = "mb-8 flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-lg";
+        statusIndicator.innerHTML = `
+          <span class="relative flex h-3 w-3">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+          </span>
+          <span class="text-sm font-medium text-emerald-400">${text || 'Conectado a Firebase'}</span>
+        `;
+      } else {
+        statusIndicator.className = "mb-8 flex items-center gap-3 bg-red-500/10 border border-red-500/20 p-3 rounded-lg";
+        statusIndicator.innerHTML = `
+          <span class="h-3 w-3 rounded-full bg-red-500"></span>
+          <span class="text-sm font-medium text-red-400">${text || 'Desconectado'}</span>
+        `;
+      }
+    }
+
+    // MODAL
+    window.openConfig = () => document.getElementById('configModal').classList.remove('hidden');
+    window.closeConfig = () => document.getElementById('configModal').classList.add('hidden');
+
+    // Guardar y conectar
+    window.saveConfig = () => {
+      const apiKey = apiKeyInput.value.trim();
+      const dbUrl = dbUrlInput.value.trim();
+      if (!apiKey || !dbUrl) return Swal.fire("Error", "Debe ingresar API Key y Database URL", "error");
+
+      localStorage.setItem("iot_api_key", apiKey);
+      localStorage.setItem("iot_db_url", dbUrl);
+
+      initFirebase(apiKey, dbUrl);
+      closeConfig();
+    };
+
+    function initFirebase(apiKey, databaseURL) {
+      try {
+        const firebaseConfig = { apiKey: apiKey, databaseURL: databaseURL };
+        app = initializeApp(firebaseConfig);
+        db = getDatabase(app);
+
+        // escuchar sensores
+        const sensoresRef = ref(db, "casa/sensores");
+        onValue(sensoresRef, (snap) => {
+          setStatus(true, "Conectado a Firebase");
+          const data = snap.val();
+          if (data) updateTempsUI(data);
+        });
+
+        // escuchar control (modo + estados)
+        const controlRef = ref(db, "casa/control");
+        onValue(controlRef, (snap) => {
+          const data = snap.val() || {};
+          updateControlUI(data);
+        });
+
+        // marcar conectado
+        setStatus(true, "Conectado a Firebase");
+      } catch (e) {
+        console.error(e);
+        Swal.fire("Error", "Credenciales Firebase inválidas", "error");
+        setStatus(false, "Error credenciales");
+      }
+    }
+
+    // actualizar temperaturas UI
+    function updateTempsUI(data) {
+      ["s1","s2","s3","s4"].forEach(id => {
+        const el = document.getElementById("temp_" + id);
+        const icon = document.getElementById("icon_" + id);
+        let t = data[id];
+        if (t !== undefined && t !== null) {
+          el.textContent = t.toFixed(2) + " °C";
+          if (t > 35) {
+            icon.classList.add("text-red-400");
+            icon.classList.remove("text-slate-400");
+          } else {
+            icon.classList.remove("text-red-400");
+            icon.classList.add("text-slate-400");
+          }
+        }
+      });
+
+      if (data.promedio !== undefined && data.promedio !== null) {
+        document.getElementById("temp_prom").textContent = data.promedio.toFixed(2) + " °C";
+        // si estamos en modo automático, también reflejar lo esperado (visual)
+        autoReflectFromPromedio(data.promedio);
+      }
+    }
+
+    // actualizar UI de control (modo & estados)
+    let currentModeAutomatic = false;
+    function updateControlUI(data) {
+      // data esperada: { modoAutomatico: true/false, calentador: bool, ventilador: bool }
+      currentModeAutomatic = !!data.modoAutomatico;
+      modeBadge.textContent = currentModeAutomatic ? "Modo: AUTOMÁTICO" : "Modo: MANUAL";
+      modeSwitchLabel.textContent = currentModeAutomatic ? "AUTOMÁTICO" : "MANUAL";
+      modeInfo.textContent = currentModeAutomatic ? "Automático" : "Manual";
+      btnStateInfo.textContent = currentModeAutomatic ? "bloqueados" : "habilitados";
+
+      // habilitar/deshabilitar botones en UI (si es automático, bloquear)
+      const disabled = currentModeAutomatic;
+      [btn_cal_on, btn_cal_off, btn_vent_on, btn_vent_off].forEach(b => {
+        b.disabled = disabled;
+        b.classList.toggle('opacity-50', disabled);
+        b.classList.toggle('cursor-not-allowed', disabled);
+      });
+
+      // mostrar estados reales (si existen)
+      state_cal.textContent = data.calentador ? "ENCENDIDO" : "APAGADO";
+      state_vent.textContent = data.ventilador ? "ENCENDIDO" : "APAGADO";
+
+      // actualizar badge color
+      modeBadge.className = "px-3 py-1 rounded-full text-sm font-semibold " + (currentModeAutomatic ? "bg-emerald-700/10 text-emerald-300 border border-emerald-700/20" : "bg-amber-700/10 text-amber-300 border border-amber-700/20");
+    }
+
+    // cuando estamos en automático, reflejar lo que debería pasar (visual)
+    function autoReflectFromPromedio(prom) {
+      if (!Number.isFinite(prom)) return;
+      if (!currentModeAutomatic) return;
+
+      // ventilador si > UMBRAL_ALTA
+      const shouldVentOn = prom > UMBRAL_ALTA;
+      const shouldCalOn = prom < UMBRAL_BAJA;
+
+      state_vent.textContent = shouldVentOn ? "ENCENDIDO" : "APAGADO";
+      state_cal.textContent = shouldCalOn ? "ENCENDIDO" : "APAGADO";
+      // Nota: la acción real la hace tu ESP; aquí sólo se actualiza la visualización en automático.
+    }
+
+    // solicitar contraseña y alternar modo
+    modeSwitchBtn.addEventListener('click', async () => {
+      // pedir contraseña
+      const { value: pass } = await Swal.fire({
+        title: 'Cambiar modo',
+        input: 'password',
+        inputLabel: 'Ingrese contraseña para cambiar modo',
+        inputPlaceholder: 'Contraseña',
+        showCancelButton: true,
+        inputAttributes: { autocapitalize: 'off', autocorrect: 'off' }
+      });
+
+      if (!pass) return; // cancelado o vacío
+
+      if (pass !== LOCK_PASSWORD) {
+        return Swal.fire({ icon: 'error', title: 'Contraseña incorrecta' });
+      }
+
+      // leer modo actual desde DB y alternar
+      const modoRef = ref(db, "casa/control/modoAutomatico");
+      // usamos get via read of parent (safer)
+      try {
+        // toggle currentModeAutomatic
+        const nuevoModo = !currentModeAutomatic;
+        await set(modoRef, nuevoModo);
+        Swal.fire({ icon: 'success', title: 'Modo cambiado', text: nuevoModo ? 'Automático' : 'Manual' });
+      } catch (err) {
+        console.error(err);
+        Swal.fire({ icon: 'error', title: 'Error al cambiar modo' });
+      }
+    });
+
+    // funciones para mandar control manual (solo cuando modo manual)
+    async function setManualControl(nombre, valor) {
+      if (currentModeAutomatic) {
+        return Swal.fire('Modo Automático', 'Desactive el modo automático para controlar manualmente.', 'info');
+      }
+      const path = `casa/control/${nombre}`;
+      try {
+        await set(ref(db, path), !!valor);
+      } catch (err) {
+        console.error(err);
+        Swal.fire('Error', 'No se pudo actualizar el control en Firebase', 'error');
+      }
+    }
+
+    // Cargar credenciales guardadas
+    lucide.createIcons();
+    const savedKey = localStorage.getItem("iot_api_key");
+    const savedUrl = localStorage.getItem("iot_db_url");
+
+    if (savedKey && savedUrl) {
+      apiKeyInput.value = savedKey;
+      dbUrlInput.value = savedUrl;
+      initFirebase(savedKey, savedUrl);
+    } else {
+      // abrir modal si no hay credenciales
+      setTimeout(() => document.getElementById('configModal').classList.remove('hidden'), 700);
+    }
+
+    // Si el usuario cambió valores en Firebase desde el ESP u otro cliente,
+    // la UI se actualizará automáticamente gracias a onValue listeners definidos en initFirebase.
+
+    // Autofill small UX: permitir doble click en badge para pedir modo actual (opcional)
+    modeBadge.addEventListener('dblclick', async () => {
+      try {
+        const snap = await get(ref(db, 'casa/control'));
+        if (snap && snap.exists()) {
+          updateControlUI(snap.val());
+          Swal.fire({ icon: 'info', title: 'Estado sincronizado' });
+        } else {
+          Swal.fire({ icon: 'warning', title: 'No hay datos de control' });
+        }
+      } catch(e) {
+        console.error(e);
+      }
+    });
+
+  </script>
+
+  <!-- lucide icons init (calls are in the module, but ensure icons render) -->
+  <script>
+    // create icons for static elements loaded before module executes
+    if (window.lucide) {
+      lucide.createIcons();
+    } else {
+      // lucide will be available after script load and module run; module also calls createIcons
+      window.addEventListener('load', ()=> { if (window.lucide) lucide.createIcons(); });
+    }
+  </script>
+</body>
+</html>
